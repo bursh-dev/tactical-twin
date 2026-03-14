@@ -18,6 +18,7 @@ public class ShootingSystem : MonoBehaviour
     [Header("References")]
     public Camera playerCamera;
     public HUDManager hud;
+    public TargetManager targetManager;
 
     private AudioSource audioSource;
     private float lastShotTime;
@@ -36,6 +37,9 @@ public class ShootingSystem : MonoBehaviour
 
         if (hud == null)
             hud = GetComponent<HUDManager>();
+
+        if (targetManager == null)
+            targetManager = FindFirstObjectByType<TargetManager>();
 
         // Create gun model on camera
         if (playerCamera != null)
@@ -80,11 +84,12 @@ public class ShootingSystem : MonoBehaviour
                 int points = target.OnHitWithScore(hit.point);
                 audioSource.PlayOneShot(hitSound);
 
+                if (targetManager != null)
+                    targetManager.RecordHit(points);
+
                 if (hud != null)
                 {
-                    hud.AddScore(points);
                     hud.ShowHitScore(points, hit.point);
-                    hud.RecordShot(true, points);
                 }
             }
             else

@@ -10,6 +10,10 @@ public class Target : MonoBehaviour
     public bool isHit { get; private set; }
     public int lastHitScore { get; private set; }
     public float TimeSinceHit => isHit ? Time.time - hitTime : 0f;
+    public float spawnTime;
+    public float timeout = 8f;
+    public bool IsTimedOut => !isHit && Time.time - spawnTime > timeout;
+    public float TimeRemaining => Mathf.Max(0f, timeout - (Time.time - spawnTime));
 
     private float hitTime;
     private Transform playerTransform;

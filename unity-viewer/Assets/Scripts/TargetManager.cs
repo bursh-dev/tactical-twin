@@ -2,19 +2,19 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Spawns targets ahead of the player as they navigate.
-/// One target at a time, always in front — surprise style.
+/// Round-based shooting game. Spawns a set number of targets one at a time.
+/// Shows summary screen at the end of the round.
 /// </summary>
 public class TargetManager : MonoBehaviour
 {
-    [Header("Spawning")]
-    public float spawnInterval = 5f;
-    public float spawnIntervalVariance = 3f;
+    [Header("Round Settings")]
+    public int targetsPerRound = 20;
+    public float spawnInterval = 4f;
+    public float spawnIntervalVariance = 2f;
     public float spawnDistanceMin = 4f;
     public float spawnDistanceMax = 10f;
     public float forwardConeAngle = 60f;
-    public int maxActiveTargets = 1;
-    public float defaultRadius = 0.3f;
+    public float targetTimeout = 8f;
 
     [Header("Audio")]
     public AudioClip spawnSound;
@@ -22,10 +22,21 @@ public class TargetManager : MonoBehaviour
     [Header("References")]
     public Transform playerTransform;
 
+    public enum RoundState { WaitingToStart, Playing, RoundOver }
+    public RoundState State { get; private set; } = RoundState.WaitingToStart;
+
+    // Round stats
+    public int TargetsSpawned { get; private set; }
+    public int TargetsHit { get; private set; }
+    public int TargetsMissed { get; private set; }
+    public int TotalScore { get; private set; }
+    public float RoundStartTime { get; private set; }
+    public float RoundEndTime { get; private set; }
+
     private List<GameObject> spawnedTargets = new List<GameObject>();
+    private List<int> hitScores = new List<int>();
     private AudioSource audioSource;
     private float nextSpawnTime;
-    private int totalSpawned;
 
     void Start()
     {
@@ -38,37 +49,69 @@ public class TargetManager : MonoBehaviour
             var player = GameObject.Find("Player");
             if (player != null) playerTransform = player.transform;
         }
-
-        nextSpawnTime = Time.time + 3f;
     }
 
     void Update()
     {
         if (playerTransform == null) return;
 
-        CleanupHitTargets();
+        if (State == RoundState.WaitingToStart)
+        {
+            if (Input.GetKeyDown(KeyCode.R))
+                StartRound();
+            return;
+        }
+
+        if (State == RoundState.RoundOver)
+        {
+            if (Input.GetKeyDown(KeyCode.R))
+                StartRound();
+            return;
+        }
+
+        // Playing state
+        CleanupTargets();
 
         int activeCount = CountActiveTargets();
-        if (activeCount < maxActiveTargets && Time.time >= nextSpawnTime)
+        bool allSpawned = TargetsSpawned >= targetsPerRound;
+
+        if (!allSpawned && activeCount == 0 && Time.time >= nextSpawnTime)
         {
             SpawnForwardTarget();
-            nextSpawnTime = Time.time + spawnInterval + Random.Range(-spawnIntervalVariance, spawnIntervalVariance);
-            nextSpawnTime = Mathf.Max(nextSpawnTime, Time.time + 2f);
+            float interval = spawnInterval + Random.Range(-spawnIntervalVariance, spawnIntervalVariance);
+            nextSpawnTime = Time.time + Mathf.Max(interval, 1.5f);
         }
+
+        // Check round end
+        if (allSpawned && activeCount == 0)
+        {
+            State = RoundState.RoundOver;
+            RoundEndTime = Time.time;
+        }
+    }
+
+    public void StartRound()
+    {
+        ClearTargets();
+        TargetsSpawned = 0;
+        TargetsHit = 0;
+        TargetsMissed = 0;
+        TotalScore = 0;
+        hitScores.Clear();
+        RoundStartTime = Time.time;
+        State = RoundState.Playing;
+        nextSpawnTime = Time.time + 1.5f;
     }
 
     void SpawnForwardTarget()
     {
-        // Spawn within a cone in front of the player
         float halfCone = forwardConeAngle * 0.5f;
         float angleOffset = Random.Range(-halfCone, halfCone);
 
-        // Get player's forward direction (yaw only)
         Vector3 forward = playerTransform.forward;
         forward.y = 0f;
         forward.Normalize();
 
-        // Rotate forward by random angle within cone
         Quaternion rotation = Quaternion.Euler(0f, angleOffset, 0f);
         Vector3 direction = rotation * forward;
 
@@ -77,7 +120,6 @@ public class TargetManager : MonoBehaviour
 
         Vector3 spawnPos = playerTransform.position + direction * distance + Vector3.up * heightVar;
 
-        // Create sphere target
         GameObject target = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         target.transform.position = spawnPos;
         target.transform.parent = transform;
@@ -86,17 +128,18 @@ public class TargetManager : MonoBehaviour
         target.transform.localScale = Vector3.one * radius * 2f;
         target.layer = gameObject.layer;
 
-        if (target.GetComponent<Target>() == null)
-            target.AddComponent<Target>();
+        var t = target.AddComponent<Target>();
+        t.spawnTime = Time.time;
+        t.timeout = targetTimeout;
 
         spawnedTargets.Add(target);
-        totalSpawned++;
+        TargetsSpawned++;
 
         if (spawnSound != null)
             audioSource.PlayOneShot(spawnSound, 0.7f);
     }
 
-    void CleanupHitTargets()
+    void CleanupTargets()
     {
         for (int i = spawnedTargets.Count - 1; i >= 0; i--)
         {
@@ -107,12 +150,29 @@ public class TargetManager : MonoBehaviour
             }
 
             var target = spawnedTargets[i].GetComponent<Target>();
-            if (target != null && target.isHit && target.TimeSinceHit > 1.5f)
+            if (target == null) continue;
+
+            // Hit target — remove after delay
+            if (target.isHit && target.TimeSinceHit > 1.5f)
             {
                 Destroy(spawnedTargets[i]);
                 spawnedTargets.RemoveAt(i);
             }
+            // Timed out — count as missed
+            else if (!target.isHit && target.IsTimedOut)
+            {
+                TargetsMissed++;
+                Destroy(spawnedTargets[i]);
+                spawnedTargets.RemoveAt(i);
+            }
         }
+    }
+
+    public void RecordHit(int score)
+    {
+        TargetsHit++;
+        TotalScore += score;
+        hitScores.Add(score);
     }
 
     int CountActiveTargets()
@@ -136,16 +196,34 @@ public class TargetManager : MonoBehaviour
         spawnedTargets.Clear();
     }
 
-    public int GetTotalCount() => totalSpawned;
-
-    public int GetHitCount()
+    public float GetAvgScore()
     {
-        int count = 0;
-        foreach (var t in spawnedTargets)
-        {
-            var target = t?.GetComponent<Target>();
-            if (target != null && target.isHit) count++;
-        }
-        return count;
+        if (hitScores.Count == 0) return 0f;
+        float sum = 0;
+        foreach (int s in hitScores) sum += s;
+        return sum / hitScores.Count;
+    }
+
+    public int GetBestScore()
+    {
+        int best = 0;
+        foreach (int s in hitScores)
+            if (s > best) best = s;
+        return best;
+    }
+
+    public string GetGrade()
+    {
+        if (TargetsSpawned == 0) return "-";
+        float hitRate = (float)TargetsHit / TargetsSpawned;
+        float avgScore = GetAvgScore();
+        float combined = hitRate * 0.5f + (avgScore / 10f) * 0.5f;
+
+        if (combined >= 0.9f) return "S";
+        if (combined >= 0.8f) return "A";
+        if (combined >= 0.65f) return "B";
+        if (combined >= 0.5f) return "C";
+        if (combined >= 0.35f) return "D";
+        return "F";
     }
 }
