@@ -1,0 +1,49 @@
+# Large binary assets
+assets/splats/
+assets/videos/
+
+# Python
+pipeline/.venv/
+pipeline/__pycache__/
+pipeline/src/**/__pycache__/
+*.pyc
+*.egg-info/
+
+# Dependencies (COLMAP binary, 3DGS repo)
+deps/
+
+# Pipeline working files
+pipeline/work/
+
+# 3DGS training outputs
+outputs/
+
+# Unity
+unity-viewer/Library/
+unity-viewer/Temp/
+unity-viewer/Obj/
+unity-viewer/Build/
+unity-viewer/Builds/
+unity-viewer/Logs/
+unity-viewer/UserSettings/
+unity-viewer/MemoryCaptures/
+unity-viewer/Packages/UnityGaussianSplatting/
+unity-viewer/Assets/Splats/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.booproj
+
+# Installers
+*.exe
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+.idea/
+*.swp

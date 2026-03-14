@@ -1,0 +1,15 @@
+{
+  "rooms": [
+    {
+      "name": "room",
+      "splatFile": "room.ply",
+      "targets": [
+        { "position": [1.5, 5.0, 0.0], "radius": 0.3 },
+        { "position": [-1.0, 5.0, 2.5], "radius": 0.3 },
+        { "position": [0.5, 5.5, -1.0], "radius": 0.25 },
+        { "position": [-0.5, 4.5, 3.0], "radius": 0.25 },
+        { "position": [2.0, 5.2, 1.5], "radius": 0.2 }
+      ]
+    }
+  ]
+}
