@@ -321,7 +321,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &917761142
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -364,6 +364,54 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
+--- !u!1 &999852630
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 999852632}
+  - component: {fileID: 999852631}
+  m_Layer: 0
+  m_Name: RoomColliders
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &999852631
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 999852630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e99cb61694f0f24db621334b3ad7f0d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RoomColliders
+  roomCenter: {x: 10, y: 5.5, z: 2}
+  roomSize: {x: 20, y: 6, z: 28}
+  wallThickness: 0.3
+  showColliders: 0
+--- !u!4 &999852632
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 999852630}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 15.37785, y: 0, z: 7.11355}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1258757702
 GameObject:
   m_ObjectHideFlags: 0
@@ -417,14 +465,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1258757702}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 5, z: 0}
+  m_LocalRotation: {x: 0, y: -0.99306846, z: 0, w: 0.117537476}
+  m_LocalPosition: {x: 15.24, y: 0, z: 7.01}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 588702161}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -166.5, z: 0}
 --- !u!114 &1258757705
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -441,7 +489,6 @@ MonoBehaviour:
   crosshairSize: 10
   crosshairThickness: 2
   crosshairColor: {r: 1, g: 1, b: 1, a: 1}
-  showTimer: 1
 --- !u!114 &1258757706
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -464,6 +511,7 @@ MonoBehaviour:
   missSound: {fileID: 0}
   playerCamera: {fileID: 0}
   hud: {fileID: 0}
+  targetManager: {fileID: 0}
 --- !u!114 &1258757707
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -476,8 +524,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c90b45250e99c30429b60d2aaef5ea0f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FPSController
-  walkSpeed: 3
-  sprintSpeed: 6
+  walkSpeed: 6
+  sprintSpeed: 12
   gravity: -9.81
   mouseSensitivity: 2
   maxPitchAngle: 85
@@ -511,13 +559,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed669c45abac990418c264d7a23349a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TargetManager
-  spawnInterval: 3
-  spawnIntervalVariance: 2
-  spawnDistanceMin: 3
-  spawnDistanceMax: 8
-  spawnHeightOffset: 0
-  maxActiveTargets: 5
-  defaultRadius: 0.3
+  eventsPerRound: 5
+  minTargetsPerEvent: 1
+  maxTargetsPerEvent: 3
+  targetTimeout: 8
+  minPauseBetweenEvents: 3
+  maxPauseBetweenEvents: 7
+  spawnDistanceMin: 0.6
+  spawnDistanceMax: 1.2
+  forwardConeAngle: 30
   spawnSound: {fileID: 8300000, guid: 98238e96700d6e6499b990ba60ea8e29, type: 3}
   playerTransform: {fileID: 0}
 --- !u!4 &1351006327
@@ -535,6 +585,65 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1970115128
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1970115130}
+  - component: {fileID: 1970115129}
+  m_Layer: 0
+  m_Name: LivingRoomSplat
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1970115129
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1970115128}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c12d929a7f62c48adbe9ff45c9a33ff0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GaussianSplatting::GaussianSplatting.Runtime.GaussianSplatRenderer
+  m_Asset: {fileID: 11400000, guid: b154912935a57cc4a9c34aeffed300b4, type: 2}
+  m_RenderOrder: 0
+  m_SplatScale: 1
+  m_OpacityScale: 1
+  m_SHOrder: 3
+  m_SHOnly: 0
+  m_SortNthFrame: 1
+  m_RenderMode: 0
+  m_PointDisplaySize: 3
+  m_Cutouts: []
+  m_ShaderSplats: {fileID: 4800000, guid: ed800126ae8844a67aad1974ddddd59c, type: 3}
+  m_ShaderComposite: {fileID: 4800000, guid: 7e184af7d01193a408eb916d8acafff9, type: 3}
+  m_ShaderDebugPoints: {fileID: 4800000, guid: b44409fc67214394f8f47e4e2648425e, type: 3}
+  m_ShaderDebugBoxes: {fileID: 4800000, guid: 4006f2680fd7c8b4cbcb881454c782be, type: 3}
+  m_CSSplatUtilities: {fileID: 7200000, guid: ec84f78b836bd4f96a105d6b804f08bd, type: 3}
+--- !u!4 &1970115130
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1970115128}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 15.37785, y: 0, z: 7.11355}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -543,3 +652,5 @@ SceneRoots:
   - {fileID: 1258757704}
   - {fileID: 917761143}
   - {fileID: 1351006327}
+  - {fileID: 999852632}
+  - {fileID: 1970115130}

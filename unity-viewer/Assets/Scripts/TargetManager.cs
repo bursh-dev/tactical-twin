@@ -2,19 +2,24 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Round-based shooting game. Spawns a set number of targets one at a time.
-/// Shows summary screen at the end of the round.
+/// Round-based shooting game with surprise events.
+/// A round = N events. Each event spawns 1-3 targets simultaneously.
+/// Score = accuracy × speed multiplier.
 /// </summary>
 public class TargetManager : MonoBehaviour
 {
     [Header("Round Settings")]
-    public int targetsPerRound = 20;
-    public float spawnInterval = 4f;
-    public float spawnIntervalVariance = 2f;
+    public int eventsPerRound = 5;
+    public int minTargetsPerEvent = 1;
+    public int maxTargetsPerEvent = 3;
+    public float targetTimeout = 6f;
+    public float minPauseBetweenEvents = 3f;
+    public float maxPauseBetweenEvents = 7f;
+
+    [Header("Spawn Settings")]
     public float spawnDistanceMin = 4f;
     public float spawnDistanceMax = 10f;
     public float forwardConeAngle = 60f;
-    public float targetTimeout = 8f;
 
     [Header("Audio")]
     public AudioClip spawnSound;
@@ -22,21 +27,29 @@ public class TargetManager : MonoBehaviour
     [Header("References")]
     public Transform playerTransform;
 
-    public enum RoundState { WaitingToStart, Playing, RoundOver }
+    public enum RoundState { WaitingToStart, Playing, EventActive, RoundOver }
     public RoundState State { get; private set; } = RoundState.WaitingToStart;
 
     // Round stats
-    public int TargetsSpawned { get; private set; }
+    public int EventsCompleted { get; private set; }
+    public int TotalTargetsSpawned { get; private set; }
     public int TargetsHit { get; private set; }
     public int TargetsMissed { get; private set; }
     public int TotalScore { get; private set; }
     public float RoundStartTime { get; private set; }
     public float RoundEndTime { get; private set; }
 
-    private List<GameObject> spawnedTargets = new List<GameObject>();
+    // Current event
+    public int CurrentEventTargetCount { get; private set; }
+    public int CurrentEventTargetsCleared { get; private set; }
+    public float CurrentEventStartTime { get; private set; }
+
+    private List<GameObject> activeTargets = new List<GameObject>();
     private List<int> hitScores = new List<int>();
+    private List<float> hitSpeeds = new List<float>();
     private AudioSource audioSource;
-    private float nextSpawnTime;
+    private float nextEventTime;
+    private bool eventActive;
 
     void Start()
     {
@@ -55,68 +68,79 @@ public class TargetManager : MonoBehaviour
     {
         if (playerTransform == null) return;
 
-        if (State == RoundState.WaitingToStart)
+        if (State == RoundState.WaitingToStart || State == RoundState.RoundOver)
         {
             if (Input.GetKeyDown(KeyCode.R))
                 StartRound();
             return;
         }
 
-        if (State == RoundState.RoundOver)
+        // Playing state — waiting between events
+        if (State == RoundState.Playing)
         {
-            if (Input.GetKeyDown(KeyCode.R))
-                StartRound();
+            if (Time.time >= nextEventTime)
+                StartEvent();
             return;
         }
 
-        // Playing state
-        CleanupTargets();
-
-        int activeCount = CountActiveTargets();
-        bool allSpawned = TargetsSpawned >= targetsPerRound;
-
-        if (!allSpawned && activeCount == 0 && Time.time >= nextSpawnTime)
+        // EventActive — targets are live
+        if (State == RoundState.EventActive)
         {
-            SpawnForwardTarget();
-            float interval = spawnInterval + Random.Range(-spawnIntervalVariance, spawnIntervalVariance);
-            nextSpawnTime = Time.time + Mathf.Max(interval, 1.5f);
-        }
-
-        // Check round end
-        if (allSpawned && activeCount == 0)
-        {
-            State = RoundState.RoundOver;
-            RoundEndTime = Time.time;
+            CheckEventTargets();
         }
     }
 
     public void StartRound()
     {
         ClearTargets();
-        TargetsSpawned = 0;
+        EventsCompleted = 0;
+        TotalTargetsSpawned = 0;
         TargetsHit = 0;
         TargetsMissed = 0;
         TotalScore = 0;
         hitScores.Clear();
+        hitSpeeds.Clear();
         RoundStartTime = Time.time;
         State = RoundState.Playing;
-        nextSpawnTime = Time.time + 1.5f;
+        // First event after a short delay
+        nextEventTime = Time.time + 2f;
     }
 
-    void SpawnForwardTarget()
+    void StartEvent()
     {
-        float halfCone = forwardConeAngle * 0.5f;
-        float angleOffset = Random.Range(-halfCone, halfCone);
+        int targetCount = Random.Range(minTargetsPerEvent, maxTargetsPerEvent + 1);
+        CurrentEventTargetCount = targetCount;
+        CurrentEventTargetsCleared = 0;
+        CurrentEventStartTime = Time.time;
 
+        // Spawn targets spread across the forward cone
+        for (int i = 0; i < targetCount; i++)
+        {
+            SpawnTarget(i, targetCount);
+        }
+
+        TotalTargetsSpawned += targetCount;
+        State = RoundState.EventActive;
+        eventActive = true;
+
+        if (spawnSound != null)
+            audioSource.PlayOneShot(spawnSound, 0.7f);
+    }
+
+    void SpawnTarget(int index, int total)
+    {
+        // Spawn targets in a 180° arc in front of the player
         Vector3 forward = playerTransform.forward;
         forward.y = 0f;
         forward.Normalize();
+        float baseAngle = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
+        float angle = baseAngle + Random.Range(-20f, 20f);
 
-        Quaternion rotation = Quaternion.Euler(0f, angleOffset, 0f);
-        Vector3 direction = rotation * forward;
+        Quaternion rotation = Quaternion.Euler(0f, angle, 0f);
+        Vector3 direction = rotation * Vector3.forward;
 
         float distance = Random.Range(spawnDistanceMin, spawnDistanceMax);
-        float heightVar = Random.Range(-1f, 1f);
+        float heightVar = Random.Range(-0.2f, 0.2f);
 
         Vector3 spawnPos = playerTransform.position + direction * distance + Vector3.up * heightVar;
 
@@ -124,7 +148,9 @@ public class TargetManager : MonoBehaviour
         target.transform.position = spawnPos;
         target.transform.parent = transform;
 
-        float radius = Random.Range(0.2f, 0.35f);
+        // Scale target size with distance — smaller when close, bigger when far
+        float t01 = Mathf.InverseLerp(spawnDistanceMin, spawnDistanceMax, distance);
+        float radius = Mathf.Lerp(0.03f, 0.08f, t01);
         target.transform.localScale = Vector3.one * radius * 2f;
         target.layer = gameObject.layer;
 
@@ -132,70 +158,102 @@ public class TargetManager : MonoBehaviour
         t.spawnTime = Time.time;
         t.timeout = targetTimeout;
 
-        spawnedTargets.Add(target);
-        TargetsSpawned++;
-
-        if (spawnSound != null)
-            audioSource.PlayOneShot(spawnSound, 0.7f);
+        activeTargets.Add(target);
     }
 
-    void CleanupTargets()
+    void CheckEventTargets()
     {
-        for (int i = spawnedTargets.Count - 1; i >= 0; i--)
+        bool allDone = true;
+
+        for (int i = activeTargets.Count - 1; i >= 0; i--)
         {
-            if (spawnedTargets[i] == null)
+            if (activeTargets[i] == null)
             {
-                spawnedTargets.RemoveAt(i);
+                activeTargets.RemoveAt(i);
                 continue;
             }
 
-            var target = spawnedTargets[i].GetComponent<Target>();
+            var target = activeTargets[i].GetComponent<Target>();
             if (target == null) continue;
 
-            // Hit target — remove after delay
-            if (target.isHit && target.TimeSinceHit > 1.5f)
+            if (target.isHit && target.TimeSinceHit > 1.2f)
             {
-                Destroy(spawnedTargets[i]);
-                spawnedTargets.RemoveAt(i);
+                Destroy(activeTargets[i]);
+                activeTargets.RemoveAt(i);
             }
-            // Timed out — count as missed
             else if (!target.isHit && target.IsTimedOut)
             {
                 TargetsMissed++;
-                Destroy(spawnedTargets[i]);
-                spawnedTargets.RemoveAt(i);
+                CurrentEventTargetsCleared++;
+                Destroy(activeTargets[i]);
+                activeTargets.RemoveAt(i);
+            }
+            else if (!target.isHit)
+            {
+                allDone = false;
+            }
+        }
+
+        // All targets in this event are resolved
+        if (allDone && activeTargets.Count == 0)
+        {
+            EventsCompleted++;
+
+            if (EventsCompleted >= eventsPerRound)
+            {
+                State = RoundState.RoundOver;
+                RoundEndTime = Time.time;
+            }
+            else
+            {
+                State = RoundState.Playing;
+                float pause = Random.Range(minPauseBetweenEvents, maxPauseBetweenEvents);
+                nextEventTime = Time.time + pause;
             }
         }
     }
 
-    public void RecordHit(int score)
+    /// <summary>
+    /// Called by ShootingSystem when a target is hit.
+    /// Calculates combined score from accuracy and speed.
+    /// </summary>
+    public void RecordHit(int accuracyScore)
     {
         TargetsHit++;
-        TotalScore += score;
-        hitScores.Add(score);
+        CurrentEventTargetsCleared++;
+
+        // Speed: how fast since event started
+        float reactionTime = Time.time - CurrentEventStartTime;
+        float speedMultiplier = CalculateSpeedMultiplier(reactionTime);
+
+        int combinedScore = Mathf.RoundToInt(accuracyScore * speedMultiplier);
+        combinedScore = Mathf.Max(combinedScore, 1);
+
+        TotalScore += combinedScore;
+        hitScores.Add(combinedScore);
+        hitSpeeds.Add(reactionTime);
     }
 
-    int CountActiveTargets()
+    /// <summary>
+    /// Speed multiplier: 2.0x for instant shots, decays to 1.0x at timeout.
+    /// </summary>
+    float CalculateSpeedMultiplier(float reactionTime)
     {
-        int count = 0;
-        foreach (var t in spawnedTargets)
-        {
-            if (t == null) continue;
-            var target = t.GetComponent<Target>();
-            if (target != null && !target.isHit) count++;
-        }
-        return count;
+        // Under 1s = 2.0x, at timeout = 1.0x, linear interpolation
+        float t = Mathf.Clamp01(reactionTime / targetTimeout);
+        return Mathf.Lerp(2f, 1f, t);
     }
 
     public void ClearTargets()
     {
-        foreach (var t in spawnedTargets)
+        foreach (var t in activeTargets)
         {
             if (t != null) Destroy(t);
         }
-        spawnedTargets.Clear();
+        activeTargets.Clear();
     }
 
+    // Stats accessors
     public float GetAvgScore()
     {
         if (hitScores.Count == 0) return 0f;
@@ -212,12 +270,36 @@ public class TargetManager : MonoBehaviour
         return best;
     }
 
+    public float GetAvgReactionTime()
+    {
+        if (hitSpeeds.Count == 0) return 0f;
+        float sum = 0;
+        foreach (float s in hitSpeeds) sum += s;
+        return sum / hitSpeeds.Count;
+    }
+
+    public float GetBestReactionTime()
+    {
+        if (hitSpeeds.Count == 0) return 0f;
+        float best = float.MaxValue;
+        foreach (float s in hitSpeeds)
+            if (s < best) best = s;
+        return best;
+    }
+
+    public int GetMaxPossibleScore()
+    {
+        // Max = every target hit instantly (accuracy 10 × speed 2.0)
+        return TotalTargetsSpawned * 20;
+    }
+
     public string GetGrade()
     {
-        if (TargetsSpawned == 0) return "-";
-        float hitRate = (float)TargetsHit / TargetsSpawned;
+        if (TotalTargetsSpawned == 0) return "-";
+        float hitRate = (float)TargetsHit / TotalTargetsSpawned;
         float avgScore = GetAvgScore();
-        float combined = hitRate * 0.5f + (avgScore / 10f) * 0.5f;
+        float maxAvg = 20f; // max possible per-target score
+        float combined = hitRate * 0.5f + (avgScore / maxAvg) * 0.5f;
 
         if (combined >= 0.9f) return "S";
         if (combined >= 0.8f) return "A";
@@ -226,4 +308,8 @@ public class TargetManager : MonoBehaviour
         if (combined >= 0.35f) return "D";
         return "F";
     }
+
+    // Legacy accessors for HUD compatibility
+    public int TargetsSpawned => TotalTargetsSpawned;
+    public int targetsPerRound => eventsPerRound;
 }

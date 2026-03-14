@@ -38,11 +38,14 @@ def train_splat(
         "--output-dir", str(output_dir),
         "--viewer.quit-on-train-completion", "True",
         "colmap",
+        "--colmap-path", "sparse/0",
     ]
 
     if downscale > 1:
-        cmd.insert(-1, "--downscale-factor")
-        cmd.insert(-1, str(downscale))
+        # Insert before the "colmap" dataparser arg
+        colmap_idx = cmd.index("colmap")
+        cmd.insert(colmap_idx, str(downscale))
+        cmd.insert(colmap_idx, "--downscale-factor")
 
     console.print(f"  Running: ns-train splatfacto ...")
 

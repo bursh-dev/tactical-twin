@@ -8,6 +8,17 @@ from rich.console import Console
 
 console = Console()
 
+# Look for ffmpeg in deps/bin/ first
+DEPS_BIN = Path(__file__).resolve().parent.parent.parent.parent / "deps" / "bin"
+
+
+def _find_ffmpeg() -> str:
+    """Find ffmpeg binary: deps/bin/ first, then system PATH."""
+    local = DEPS_BIN / "ffmpeg.exe"
+    if local.exists():
+        return str(local)
+    return "ffmpeg"
+
 
 def extract_frames(video_path: Path, output_dir: Path, fps: int = 2, quality: int = 2) -> int:
     """Extract frames from video at given fps.
@@ -25,7 +36,7 @@ def extract_frames(video_path: Path, output_dir: Path, fps: int = 2, quality: in
     pattern = str(output_dir / "%05d.jpg")
 
     cmd = [
-        "ffmpeg", "-i", str(video_path),
+        _find_ffmpeg(), "-i", str(video_path),
         "-qscale:v", str(quality),
         "-r", str(fps),
         pattern,

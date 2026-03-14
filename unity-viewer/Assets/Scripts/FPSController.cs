@@ -90,10 +90,16 @@ public class FPSController : MonoBehaviour
         float moveZ = Input.GetAxisRaw("Vertical");    // W/S
 
         float moveY = 0f;
-        if (Input.GetKey(KeyCode.E)) moveY = 1f;
-        if (Input.GetKey(KeyCode.Q)) moveY = -1f;
 
-        Vector3 move = transform.right * moveX + transform.forward * moveZ + Vector3.up * moveY;
+        // Keep movement on horizontal plane regardless of camera pitch
+        Vector3 flatForward = transform.forward;
+        flatForward.y = 0f;
+        flatForward.Normalize();
+        Vector3 flatRight = transform.right;
+        flatRight.y = 0f;
+        flatRight.Normalize();
+
+        Vector3 move = flatRight * moveX + flatForward * moveZ + Vector3.up * moveY;
         move = move.normalized * speed;
 
         controller.Move(move * Time.deltaTime);

@@ -47,8 +47,13 @@ public class ShootingSystem : MonoBehaviour
             gunModel = playerCamera.gameObject.AddComponent<GunModel>();
         }
 
-        // Generate procedural sounds if none assigned
-        if (shotSound == null) shotSound = ProceduralSFX.GenerateGunshot();
+        // Load real gunshot sound, fallback to procedural
+        if (shotSound == null)
+        {
+            var clip = Resources.Load<AudioClip>("glock19");
+            if (clip != null) shotSound = clip;
+            else shotSound = ProceduralSFX.GenerateGunshot();
+        }
         if (hitSound == null) hitSound = ProceduralSFX.GenerateHit();
         if (missSound == null) missSound = ProceduralSFX.GenerateMiss();
     }
@@ -84,16 +89,29 @@ public class ShootingSystem : MonoBehaviour
                 int points = target.OnHitWithScore(hit.point);
                 audioSource.PlayOneShot(hitSound);
 
+                // Bullet hole on target — short lifetime
+                BulletHole.Spawn(hit.point, hit.normal, 1.5f, 0.04f);
+
+                // Calculate speed multiplier for HUD display
+                float reactionTime = targetManager != null
+                    ? Time.time - targetManager.CurrentEventStartTime : 0f;
+                float speedMul = targetManager != null
+                    ? Mathf.Lerp(2f, 1f, Mathf.Clamp01(reactionTime / (targetManager != null ? targetManager.targetTimeout : 6f)))
+                    : 1f;
+
                 if (targetManager != null)
                     targetManager.RecordHit(points);
 
                 if (hud != null)
                 {
-                    hud.ShowHitScore(points, hit.point);
+                    hud.ShowHitScore(points, hit.point, speedMul);
                 }
             }
             else
             {
+                // Bullet hole on wall/surface — longer lifetime
+                BulletHole.Spawn(hit.point, hit.normal, 8f, 0.06f);
+
                 if (hud != null)
                     hud.RecordShot(false, 0);
             }
@@ -101,6 +119,11 @@ public class ShootingSystem : MonoBehaviour
         else
         {
             audioSource.PlayOneShot(missSound, 0.5f);
+
+            // No collider hit — place bullet hole at fixed distance (splat walls have no colliders)
+            Vector3 impactPoint = ray.origin + ray.direction * 15f;
+            BulletHole.Spawn(impactPoint, -ray.direction, 8f, 0.2f);
+
             if (hud != null)
                 hud.RecordShot(false, 0);
         }
