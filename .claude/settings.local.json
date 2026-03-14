@@ -93,7 +93,20 @@
       "Read(//c/Users/$USERNAME/**)",
       "Bash(cp -r c:/projects/vs_code/tactical-twin/unity-viewer-backup/Assets/Scripts c:/projects/vs_code/tactical-twin/unity-viewer/Assets/Scripts)",
       "Bash(cp -r c:/projects/vs_code/tactical-twin/unity-viewer-backup/Assets/Configs c:/projects/vs_code/tactical-twin/unity-viewer/Assets/Configs)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(ffmpeg -i \"C:/projects/allahu_akbar_short.mp3\" -t 2 -y \"c:/projects/vs_code/tactical-twin/unity-viewer/Assets/Audio/hit.mp3\")",
+      "Bash(where ffmpeg:*)",
+      "Read(//c/projects/vs_code/tactical-twin/$LOCALAPPDATA/Microsoft/WinGet/Links/**)",
+      "Read(//c//**)",
+      "Bash(ls c:/projects/vs_code/tactical-twin/pipeline/.venv/Scripts/ffmpeg*)",
+      "Bash(pip show:*)",
+      "Bash(cmd.exe /c \"where ffmpeg\")",
+      "Bash(ls /c/ffmpeg*/bin/ffmpeg.exe)",
+      "Read(//c/Users/**)",
+      "Bash(powershell -Command \"\\(Get-Command ffmpeg\\).Source\")",
+      "Bash(powershell -Command \"winget show --id Gyan.FFmpeg 2>&1 | Select-String ''Install''\")",
+      "Read(//c/Users/$USERNAME/AppData/Local/Microsoft/**)",
+      "Bash(powershell -Command \"Expand-Archive -Path ''C:/projects/ffmpeg.zip'' -DestinationPath ''C:/projects/ffmpeg-tmp'' -Force\")"
     ],
     "additionalDirectories": [
       "c:\\projects\\vs_code\\tactical-twin\\unity-viewer\\.git"

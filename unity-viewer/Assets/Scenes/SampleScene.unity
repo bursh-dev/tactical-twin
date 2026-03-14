@@ -458,9 +458,9 @@ MonoBehaviour:
   cooldown: 0.3
   targetLayer:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 0
   shotSound: {fileID: 0}
-  hitSound: {fileID: 0}
+  hitSound: {fileID: 8300000, guid: 60e93975fe2d0d448b59f4013ad2e415, type: 3}
   missSound: {fileID: 0}
   playerCamera: {fileID: 0}
   hud: {fileID: 0}
@@ -511,9 +511,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed669c45abac990418c264d7a23349a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TargetManager
-  targetPrefab: {fileID: 0}
+  spawnInterval: 3
+  spawnIntervalVariance: 2
+  spawnDistanceMin: 3
+  spawnDistanceMax: 8
+  spawnHeightOffset: 0
+  maxActiveTargets: 5
   defaultRadius: 0.3
-  targetConfigFile: {fileID: 4900000, guid: e51f37e9695def148b7f2776de40f71e, type: 3}
+  spawnSound: {fileID: 8300000, guid: 98238e96700d6e6499b990ba60ea8e29, type: 3}
+  playerTransform: {fileID: 0}
 --- !u!4 &1351006327
 Transform:
   m_ObjectHideFlags: 0
@@ -523,7 +529,7 @@ Transform:
   m_GameObject: {fileID: 1351006325}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 15.37785, y: 0, z: 7.11354}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

@@ -21,6 +21,7 @@ public class ShootingSystem : MonoBehaviour
 
     private AudioSource audioSource;
     private float lastShotTime;
+    private GunModel gunModel;
 
     void Start()
     {
@@ -35,6 +36,17 @@ public class ShootingSystem : MonoBehaviour
 
         if (hud == null)
             hud = GetComponent<HUDManager>();
+
+        // Create gun model on camera
+        if (playerCamera != null)
+        {
+            gunModel = playerCamera.gameObject.AddComponent<GunModel>();
+        }
+
+        // Generate procedural sounds if none assigned
+        if (shotSound == null) shotSound = ProceduralSFX.GenerateGunshot();
+        if (hitSound == null) hitSound = ProceduralSFX.GenerateHit();
+        if (missSound == null) missSound = ProceduralSFX.GenerateMiss();
     }
 
     void Update()
@@ -51,29 +63,41 @@ public class ShootingSystem : MonoBehaviour
         lastShotTime = Time.time;
 
         // Play shot sound
-        if (shotSound != null)
-            audioSource.PlayOneShot(shotSound);
+        audioSource.PlayOneShot(shotSound);
+
+        // Muzzle flash
+        if (gunModel != null)
+            gunModel.ShowMuzzleFlash();
 
         // Raycast from screen center
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-        if (Physics.Raycast(ray, out RaycastHit hit, maxRange, targetLayer))
+
+        if (Physics.Raycast(ray, out RaycastHit hit, maxRange))
         {
             Target target = hit.collider.GetComponent<Target>();
             if (target != null && !target.isHit)
             {
-                target.OnHit();
-
-                if (hitSound != null)
-                    audioSource.PlayOneShot(hitSound);
+                int points = target.OnHitWithScore(hit.point);
+                audioSource.PlayOneShot(hitSound);
 
                 if (hud != null)
-                    hud.AddScore(1);
+                {
+                    hud.AddScore(points);
+                    hud.ShowHitScore(points, hit.point);
+                    hud.RecordShot(true, points);
+                }
+            }
+            else
+            {
+                if (hud != null)
+                    hud.RecordShot(false, 0);
             }
         }
         else
         {
-            if (missSound != null)
-                audioSource.PlayOneShot(missSound, 0.5f);
+            audioSource.PlayOneShot(missSound, 0.5f);
+            if (hud != null)
+                hud.RecordShot(false, 0);
         }
     }
 }
