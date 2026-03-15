@@ -8,9 +8,9 @@ using UnityEngine;
 public class FPSController : MonoBehaviour
 {
     [Header("Movement")]
-    public float walkSpeed = 3f;
-    public float sprintSpeed = 6f;
-    public float gravity = 0f;
+    public float walkSpeed = 1.5f;
+    public float sprintSpeed = 3f;
+    public float gravity = 20f;
 
     [Header("Mouse Look")]
     public float mouseSensitivity = 2f;
@@ -99,9 +99,23 @@ public class FPSController : MonoBehaviour
         flatRight.y = 0f;
         flatRight.Normalize();
 
-        Vector3 move = flatRight * moveX + flatForward * moveZ + Vector3.up * moveY;
+        Vector3 move = flatRight * moveX + flatForward * moveZ;
         move = move.normalized * speed;
 
-        controller.Move(move * Time.deltaTime);
+        // Store Y — no gravity, no vertical movement
+        float fixedY = transform.position.y;
+
+        // Stop dead on wall hit — no sliding
+        Vector3 posBefore = transform.position;
+        controller.Move(new Vector3(move.x, 0f, move.z) * Time.deltaTime);
+        if ((controller.collisionFlags & CollisionFlags.Sides) != 0)
+        {
+            transform.position = posBefore;
+        }
+
+        // Lock Y position
+        Vector3 pos = transform.position;
+        pos.y = fixedY;
+        transform.position = pos;
     }
 }

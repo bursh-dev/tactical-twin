@@ -72,6 +72,14 @@ public class HUDManager : MonoBehaviour
 
         if (targetManager == null) return;
 
+        // During calibration, only show crosshair
+        var calibrator = FindFirstObjectByType<RoomCalibrator>();
+        if (calibrator != null && calibrator.IsCalibrating)
+        {
+            DrawCrosshair();
+            return;
+        }
+
         switch (targetManager.State)
         {
             case TargetManager.RoundState.WaitingToStart:
@@ -162,13 +170,10 @@ public class HUDManager : MonoBehaviour
         float cx = Screen.width / 2f;
         float cy = Screen.height / 2f;
 
-        GUI.DrawTexture(new Rect(cx - 280, cy - 130, 560, 260), bgTexture);
+        GUI.DrawTexture(new Rect(cx - 280, cy - 130, 560, 290), bgTexture);
 
         GUI.Label(new Rect(cx - 280, cy - 110, 560, 50), "TACTICAL TWIN", titleStyle);
         GUI.Label(new Rect(cx - 280, cy - 50, 560, 40), "Shooting Range", instructionStyle);
-        GUI.Label(new Rect(cx - 280, cy, 560, 40),
-            $"{targetManager.eventsPerRound} events | {targetManager.minTargetsPerEvent}-{targetManager.maxTargetsPerEvent} targets each | {targetManager.targetTimeout}s window",
-            smallLabelStyle);
         smallLabelStyle.alignment = TextAnchor.MiddleCenter;
         GUI.Label(new Rect(cx - 280, cy, 560, 40),
             $"{targetManager.eventsPerRound} events | {targetManager.minTargetsPerEvent}-{targetManager.maxTargetsPerEvent} targets each | {targetManager.targetTimeout}s window",
@@ -179,7 +184,7 @@ public class HUDManager : MonoBehaviour
         GUI.Label(new Rect(cx - 280, cy + 75, 560, 40), "Press R to start round", instructionStyle);
 
         smallLabelStyle.alignment = TextAnchor.MiddleCenter;
-        GUI.Label(new Rect(cx - 280, cy + 110, 560, 30), "WASD move | Mouse look | Q/E up/down", smallLabelStyle);
+        GUI.Label(new Rect(cx - 280, cy + 110, 560, 30), "WASD move | Mouse look | C calibrate room", smallLabelStyle);
         smallLabelStyle.alignment = TextAnchor.MiddleLeft;
     }
 
@@ -315,7 +320,7 @@ public class HUDManager : MonoBehaviour
         GUI.Label(new Rect(sx, y, 350, 30), $"Round Time:  {dMin:D2}:{dSec:D2}", summaryStyle);
         y += 45;
 
-        GUI.Label(new Rect(cx - boxW / 2, y, boxW, 35), "Press R to play again", instructionStyle);
+        GUI.Label(new Rect(cx - boxW / 2, y, boxW, 35), "Press R to play again | C to recalibrate", instructionStyle);
     }
 
     void DrawCrosshair()

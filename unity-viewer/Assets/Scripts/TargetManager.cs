@@ -49,7 +49,8 @@ public class TargetManager : MonoBehaviour
     private List<float> hitSpeeds = new List<float>();
     private AudioSource audioSource;
     private float nextEventTime;
-    private bool eventActive;
+
+    private RoomCalibrator roomCalibrator;
 
     void Start()
     {
@@ -62,14 +63,25 @@ public class TargetManager : MonoBehaviour
             var player = GameObject.Find("Player");
             if (player != null) playerTransform = player.transform;
         }
+
+        roomCalibrator = FindFirstObjectByType<RoomCalibrator>();
     }
 
     void Update()
     {
         if (playerTransform == null) return;
 
+        // Block input during calibration
+        if (roomCalibrator != null && roomCalibrator.IsCalibrating) return;
+
         if (State == RoundState.WaitingToStart || State == RoundState.RoundOver)
         {
+            // C to recalibrate room
+            if (Input.GetKeyDown(KeyCode.C) && roomCalibrator != null)
+            {
+                roomCalibrator.EnterCalibration();
+                return;
+            }
             if (Input.GetKeyDown(KeyCode.R))
                 StartRound();
             return;
@@ -121,7 +133,6 @@ public class TargetManager : MonoBehaviour
 
         TotalTargetsSpawned += targetCount;
         State = RoundState.EventActive;
-        eventActive = true;
 
         if (spawnSound != null)
             audioSource.PlayOneShot(spawnSound, 0.7f);
@@ -129,7 +140,7 @@ public class TargetManager : MonoBehaviour
 
     void SpawnTarget(int index, int total)
     {
-        // Spawn targets in a 180° arc in front of the player
+        // Spawn target in ±20° arc in front of the player
         Vector3 forward = playerTransform.forward;
         forward.y = 0f;
         forward.Normalize();

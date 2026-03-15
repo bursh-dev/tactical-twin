@@ -41,51 +41,65 @@ Load this when working on the project to have everything at hand.
 | Splats | `unity-viewer\Assets\Splats\` (gitignored) |
 | Aras-P plugin | `unity-viewer\Packages\UnityGaussianSplatting\` |
 
-## 2. Environment Setup (bash)
+## 2. Pipeline — Fully Automated
 
-Required before running any pipeline command:
+The pipeline sets up CUDA/MSVC/tool environment automatically. Just run:
 
 ```bash
-export CUDA_HOME="/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.4"
-MSVC_ROOT="/c/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.44.35207"
-PROJECT_DIR="/c/projects/vs_code/tactical-twin"
-export PATH="$PROJECT_DIR/deps/bin:$MSVC_ROOT/bin/Hostx64/x64:$PROJECT_DIR/pipeline/.venv/Scripts:$CUDA_HOME/bin:$PATH"
-export PYTHONIOENCODING=utf-8
-export PYTHONUTF8=1
+cd pipeline/
+uv run tt-pipeline ../assets/videos/VIDEO.mp4
 ```
 
-## 3. Pipeline Commands
-
-### Full automated pipeline
+Options:
 ```bash
-bash scripts/full-pipeline.sh assets/videos/VIDEO.mp4 SCENE_NAME
+uv run tt-pipeline ../assets/videos/VIDEO.mp4 \
+  --scene my-room \          # Scene name (default: video filename)
+  --fps 3 \                  # Frame extraction rate (default: 3)
+  --iterations 30000 \       # Training iterations (default: 30000)
+  --downscale 2 \            # Image downscale factor (default: 2)
+  --copy-to-unity             # Copies .ply to unity-viewer/Assets/Splats/ (default: yes)
 ```
 
-### Individual steps
+The pipeline:
+1. Sets up PATH (COLMAP, MSVC cl.exe, CUDA) automatically
+2. Verifies all tools exist
+3. Extracts frames (3fps, JPEG quality 1)
+4. Runs COLMAP (16384 features, overlap 20, sequential matching)
+5. Trains splatfacto (30K iterations)
+6. Exports .ply
+7. Copies to `assets/splats/` AND `unity-viewer/Assets/Splats/`
+8. Prints Unity import instructions
+
+Steps 1-2 are skipped if already completed (delete work dir to re-run).
+
+### Pipeline Defaults (improved)
+
+| Setting | Old | New | Why |
+|---------|-----|-----|-----|
+| FPS extraction | 2 | 3 | More frames = better COLMAP overlap |
+| JPEG quality | 2 | 1 | Best quality, negligible size impact |
+| COLMAP features | 8192 | 16384 | Denser point cloud |
+| COLMAP overlap | 15 | 20 | More frame pairs matched |
+| Training iterations | 15000 | 30000 | Sharper splat details |
+
+### Individual steps (if needed)
 ```bash
 cd pipeline/
 
-# Step 1: Extract frames (2 fps)
-.venv/Scripts/python.exe -m tactical_twin_pipeline.extract_frames ../assets/videos/VIDEO.mp4 -o work/SCENE/frames --fps 2
+# Step 1: Extract frames
+uv run tt-extract ../assets/videos/VIDEO.mp4 -o work/SCENE/frames --fps 3
 
-# Step 2: COLMAP (process_data.py — NOT ns-process-data)
-.venv/Scripts/python.exe -m tactical_twin_pipeline.process_data work/SCENE/frames -o work/SCENE/colmap
+# Step 2: COLMAP
+uv run python -m tactical_twin_pipeline.process_data work/SCENE/frames -o work/SCENE/colmap
 
 # Step 3: Train splatfacto
-.venv/Scripts/python.exe -m nerfstudio.scripts.train splatfacto \
-  --data work/SCENE/colmap \
-  --output-dir work/SCENE/trained \
-  --max-num-iterations 15000 \
-  --viewer.quit-on-train-completion True \
-  colmap --colmap-path sparse/0
+uv run tt-train work/SCENE/colmap -n 30000
 
 # Step 4: Export .ply
-.venv/Scripts/python.exe -m nerfstudio.scripts.exporter gaussian-splat \
-  --load-config work/SCENE/trained/colmap/splatfacto/TIMESTAMP/config.yml \
-  --output-dir ../assets/splats/SCENE/
+uv run tt-export work/SCENE/trained/SCENE/splatfacto/TIMESTAMP/config.yml
 ```
 
-## 4. COLMAP 3.13 Critical Settings
+## 3. COLMAP 3.13 Critical Settings
 
 **NEVER use `ns-process-data`** — it uses old COLMAP flag names that fail with 3.13.
 
@@ -98,7 +112,7 @@ cd pipeline/
 ### Feature extraction
 ```
 --FeatureExtraction.use_gpu 1
---SiftExtraction.max_num_features 8192
+--SiftExtraction.max_num_features 16384
 --SiftExtraction.estimate_affine_shape 1
 --SiftExtraction.domain_size_pooling 1
 --ImageReader.single_camera 1
@@ -109,7 +123,7 @@ cd pipeline/
 ```
 sequential_matcher  (NEVER exhaustive for video input)
 --FeatureMatching.use_gpu 1
---SequentialMatching.overlap 15
+--SequentialMatching.overlap 20
 ```
 
 ### Mapper
@@ -122,11 +136,11 @@ sequential_matcher  (NEVER exhaustive for video input)
 COLMAP may produce sparse/0, sparse/1, etc. The `process_data.py` auto-selects the best one
 (largest images.bin = most registered images) and moves it to sparse/0.
 
-## 5. Unity Import Steps
+## 4. Unity Import Steps (manual — after pipeline)
 
 ### Import a new .ply splat into Unity
 
-1. Copy .ply to `unity-viewer/Assets/Splats/`
+1. Pipeline copies .ply to `unity-viewer/Assets/Splats/` automatically
 2. In Unity: **Tools → Gaussian Splats → Create GaussianSplatAsset**
 3. Browse to the .ply file, set Quality to Medium, click **Create Asset**
 4. Create empty GameObject in Hierarchy, add **Gaussian Splat Renderer** component
@@ -142,7 +156,7 @@ COLMAP may produce sparse/0, sparse/1, etc. The `process_data.py` auto-selects t
 - **Events Per Round**: 5
 - **Min/Max Targets Per Event**: 1-3
 
-## 6. Processed Rooms
+## 5. Processed Rooms
 
 ### Office (first room)
 | Setting | Value |
@@ -159,7 +173,7 @@ COLMAP may produce sparse/0, sparse/1, etc. The `process_data.py` auto-selects t
 | Rotation Y | -166.5 |
 | Spawn distance | 1-4 (room is small in splat coords) |
 
-## 7. CUDA Build Environment
+## 6. CUDA Build Environment
 
 Required for gsplat JIT compilation during splatfacto training:
 
@@ -172,7 +186,7 @@ Required for gsplat JIT compilation during splatfacto training:
 | setuptools | <70 | Newer versions break distutils |
 | ninja | latest | Required for JIT build |
 
-## 8. Hardware
+## 7. Hardware
 
 | Component | Spec |
 |-----------|------|
@@ -181,14 +195,15 @@ Required for gsplat JIT compilation during splatfacto training:
 | CPU | Intel i7-12800H (14 cores) |
 | OS | Windows 11 Enterprise |
 
-## 9. Key Gotchas
+## 8. Key Gotchas
 
 - **Never use pip directly** — always `uv pip install`
 - **Never use chmod** or Unix-only commands — this is Windows
 - **Never use ns-process-data** — broken with COLMAP 3.13
 - **Always use sequential_matcher** for video input (exhaustive produces garbage)
-- **MSVC must be on PATH** before splatfacto training (gsplat needs cl.exe)
+- **MSVC must be on PATH** before splatfacto training (gsplat needs cl.exe) — pipeline does this automatically
 - **Splat Rotation X = -90** in Unity (COLMAP Z-up → Unity Y-up)
 - **Splat .ply import is manual**: Tools → Gaussian Splats → Create GaussianSplatAsset
 - **Target spawn distance** must be tuned per room — splat rooms vary in scale
 - **Q/E fly mode disabled** — horizontal walking only (simulates real movement)
+- **Room calibration**: in-game wall marking (aim at 4 corners per wall, press F)

@@ -20,7 +20,7 @@ def _find_ffmpeg() -> str:
     return "ffmpeg"
 
 
-def extract_frames(video_path: Path, output_dir: Path, fps: int = 2, quality: int = 2) -> int:
+def extract_frames(video_path: Path, output_dir: Path, fps: int = 3, quality: int = 1) -> int:
     """Extract frames from video at given fps.
 
     Args:
@@ -61,7 +61,7 @@ def extract_frames(video_path: Path, output_dir: Path, fps: int = 2, quality: in
 @click.argument("video", type=click.Path(exists=True, path_type=Path))
 @click.option("--output", "-o", type=click.Path(path_type=Path), default=None,
               help="Output directory for frames. Defaults to ./frames/<video_name>/")
-@click.option("--fps", default=2, help="Frames per second to extract (default: 2)")
+@click.option("--fps", default=3, help="Frames per second to extract (default: 3)")
 def main(video: Path, output: Path | None, fps: int):
     """Extract frames from VIDEO file for 3DGS reconstruction."""
     if output is None:

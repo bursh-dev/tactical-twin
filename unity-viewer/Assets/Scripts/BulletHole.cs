@@ -7,7 +7,7 @@ public class BulletHole : MonoBehaviour
 {
     private float lifetime;
     private float elapsed;
-    private Renderer renderer;
+    private new Renderer renderer;
     private Color baseColor;
 
     public static GameObject Spawn(Vector3 position, Vector3 normal, float lifetime = 5f, float size = 0.06f)

@@ -13,7 +13,7 @@ console = Console()
 def train_splat(
     colmap_dir: Path,
     output_dir: Path,
-    max_iterations: int = 15000,
+    max_iterations: int = 30000,
     downscale: int = 2,
 ) -> Path:
     """Train Gaussian splats using ns-train splatfacto.
@@ -42,14 +42,13 @@ def train_splat(
     ]
 
     if downscale > 1:
-        # Insert before the "colmap" dataparser arg
-        colmap_idx = cmd.index("colmap")
-        cmd.insert(colmap_idx, str(downscale))
-        cmd.insert(colmap_idx, "--downscale-factor")
+        # --downscale-factor goes after "colmap" (it's a colmap dataparser arg)
+        cmd.extend(["--downscale-factor", str(downscale)])
 
     console.print(f"  Running: ns-train splatfacto ...")
 
-    result = subprocess.run(cmd, text=True)
+    # Pipe "y" to auto-confirm any interactive prompts (e.g. downscale confirmation)
+    result = subprocess.run(cmd, text=True, input="y\n")
     if result.returncode != 0:
         raise RuntimeError("ns-train splatfacto failed")
 
@@ -68,7 +67,7 @@ def train_splat(
 @click.argument("colmap_dir", type=click.Path(exists=True, path_type=Path))
 @click.option("--output", "-o", type=click.Path(path_type=Path), default=None,
               help="Output directory for trained model.")
-@click.option("--iterations", "-n", default=15000, help="Max training iterations (default: 15000)")
+@click.option("--iterations", "-n", default=30000, help="Max training iterations (default: 30000)")
 @click.option("--downscale", "-d", default=2, help="Downscale images by factor (default: 2)")
 def main(colmap_dir: Path, output: Path | None, iterations: int, downscale: int):
     """Train 3DGS on COLMAP_DIR (must contain sparse/ and images/)."""

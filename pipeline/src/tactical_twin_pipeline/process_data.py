@@ -64,7 +64,7 @@ def run_colmap(images_dir: Path, project_dir: Path, colmap_bin: Path | None = No
         "--ImageReader.single_camera", "1",
         "--ImageReader.camera_model", "OPENCV",
         "--FeatureExtraction.use_gpu", "1",
-        "--SiftExtraction.max_num_features", "8192",
+        "--SiftExtraction.max_num_features", "16384",
         "--SiftExtraction.estimate_affine_shape", "1",
         "--SiftExtraction.domain_size_pooling", "1",
     ])
@@ -76,7 +76,7 @@ def run_colmap(images_dir: Path, project_dir: Path, colmap_bin: Path | None = No
         colmap, "sequential_matcher",
         "--database_path", str(db_path),
         "--FeatureMatching.use_gpu", "1",
-        "--SequentialMatching.overlap", "15",
+        "--SequentialMatching.overlap", "20",
     ])
 
     # Step 3: Sparse reconstruction (mapper)
