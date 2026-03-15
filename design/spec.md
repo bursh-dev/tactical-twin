@@ -67,10 +67,11 @@ The pipeline:
 4. Runs COLMAP (16384 features, overlap 20, sequential matching)
 5. Trains splatfacto (30K iterations)
 6. Exports .ply
-7. Copies to `assets/splats/` AND `unity-viewer/Assets/Splats/`
-8. Prints Unity import instructions
+7. Extracts collision mesh via RANSAC plane detection (walls, floor, ceiling)
+8. Copies .ply + collision .obj to `assets/splats/` AND `unity-viewer/Assets/Splats/`
+9. Prints Unity import instructions
 
-Steps 1-2 are skipped if already completed (delete work dir to re-run).
+Steps 1-2, 7 are skipped if already completed (delete work dir to re-run).
 
 ### Pipeline Defaults (improved)
 
@@ -97,7 +98,21 @@ uv run tt-train work/SCENE/colmap -n 30000
 
 # Step 4: Export .ply
 uv run tt-export work/SCENE/trained/SCENE/splatfacto/TIMESTAMP/config.yml
+
+# Step 5: Extract collision mesh from .ply
+uv run tt-collision work/SCENE/export/splat.ply -o work/SCENE/collision/SCENE_collision.obj
 ```
+
+### Auto-Collision Mesh
+
+The pipeline automatically extracts collision geometry from the Gaussian splat point cloud using RANSAC plane detection:
+
+- Detects walls (vertical planes), floor, and ceiling (horizontal planes)
+- Exports as .obj mesh with thin slabs (0.15m thickness)
+- Auto-copied to `unity-viewer/Assets/Splats/<scene>_collision.obj`
+- Unity loads it at runtime as a MeshCollider (rotation X=-90 applied automatically)
+- Falls back to manual wall calibration (C key) if no collision mesh found
+- No external dependencies — pure numpy RANSAC
 
 ## 3. COLMAP 3.13 Critical Settings
 

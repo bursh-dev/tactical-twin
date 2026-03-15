@@ -20,7 +20,12 @@ public class RoomCalibrator : MonoBehaviour
     public Camera playerCamera;
     public FPSController fpsController;
 
+    [Header("Auto-Mesh")]
+    [Tooltip("If true, look for <roomName>_collision.obj in Assets/Splats/ and load it automatically")]
+    public bool useAutoMesh = true;
+
     public bool IsCalibrating { get; private set; }
+    private bool autoMeshLoaded;
 
     private float placementDistance;
     private List<Vector3> currentPoints = new List<Vector3>(); // 0-3 points for current wall
@@ -59,7 +64,14 @@ public class RoomCalibrator : MonoBehaviour
         bgTexture.SetPixel(0, 0, new Color(0, 0, 0, 0.7f));
         bgTexture.Apply();
 
-        // Try loading saved walls
+        // Try auto-loading collision mesh from pipeline first
+        if (TryLoadCollisionMesh())
+        {
+            Debug.Log($"[RoomCalibrator] Auto-loaded collision mesh for {roomName}");
+            return;
+        }
+
+        // Fall back to saved manual wall calibration
         string path = GetSavePath();
         if (File.Exists(path))
         {
@@ -238,6 +250,7 @@ public class RoomCalibrator : MonoBehaviour
     public void EnterCalibration()
     {
         IsCalibrating = true;
+        autoMeshLoaded = false;
         ClearColliders();
         currentPoints.Clear();
 
@@ -384,6 +397,87 @@ public class RoomCalibrator : MonoBehaviour
             if (m != null) Destroy(m);
         }
         markerObjects.Clear();
+    }
+
+    bool TryLoadCollisionMesh()
+    {
+        if (!useAutoMesh) return false;
+
+        // Look for collision .obj in Assets/Splats/
+        string objPath = Path.Combine(Application.dataPath, "Splats", $"{roomName}_collision.obj");
+        if (!File.Exists(objPath))
+            return false;
+
+        Debug.Log($"[RoomCalibrator] Loading collision mesh: {objPath}");
+        Mesh mesh = LoadObjMesh(objPath);
+        if (mesh == null || mesh.vertexCount == 0)
+            return false;
+
+        // Create a collision GameObject with MeshCollider
+        var go = new GameObject("AutoCollisionMesh");
+        go.transform.SetParent(transform, false);
+
+        // Apply same rotation as splat (X = -90 for COLMAP Z-up to Unity Y-up)
+        go.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
+
+        var mc = go.AddComponent<MeshCollider>();
+        mc.sharedMesh = mesh;
+        mc.convex = false; // concave mesh for room collision
+
+        colliderObjects.Add(go);
+        autoMeshLoaded = true;
+
+        Debug.Log($"[RoomCalibrator] Collision mesh loaded: {mesh.vertexCount} vertices, {mesh.triangles.Length / 3} triangles");
+        return true;
+    }
+
+    static Mesh LoadObjMesh(string path)
+    {
+        var vertices = new List<Vector3>();
+        var triangles = new List<int>();
+
+        foreach (string rawLine in File.ReadAllLines(path))
+        {
+            string line = rawLine.Trim();
+            if (line.StartsWith("v "))
+            {
+                string[] parts = line.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 4)
+                {
+                    float x = float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
+                    float y = float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
+                    float z = float.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture);
+                    vertices.Add(new Vector3(x, y, z));
+                }
+            }
+            else if (line.StartsWith("f "))
+            {
+                string[] parts = line.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+                // Parse face indices (OBJ is 1-indexed, may have v/vt/vn format)
+                var faceIndices = new List<int>();
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    string idx = parts[i].Split('/')[0];
+                    faceIndices.Add(int.Parse(idx) - 1); // convert to 0-indexed
+                }
+                // Triangulate quads and n-gons via fan
+                for (int i = 1; i < faceIndices.Count - 1; i++)
+                {
+                    triangles.Add(faceIndices[0]);
+                    triangles.Add(faceIndices[i]);
+                    triangles.Add(faceIndices[i + 1]);
+                }
+            }
+        }
+
+        if (vertices.Count == 0) return null;
+
+        var mesh = new Mesh();
+        mesh.vertices = vertices.ToArray();
+        mesh.triangles = triangles.ToArray();
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
     }
 
     string GetSavePath()

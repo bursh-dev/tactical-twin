@@ -19,6 +19,7 @@ from tactical_twin_pipeline.extract_frames import extract_frames
 from tactical_twin_pipeline.process_data import run_colmap
 from tactical_twin_pipeline.train_splat import train_splat
 from tactical_twin_pipeline.export_splat import export_splat
+from tactical_twin_pipeline.extract_collision import extract_collision
 
 console = Console()
 
@@ -132,12 +133,12 @@ def main(video: Path, scene: str | None, output: Path | None, fps: int,
     ))
 
     # Step 0: Environment setup
-    console.rule("[bold blue]Step 0/5: Environment Setup")
+    console.rule("[bold blue]Step 0/6: Environment Setup")
     setup_environment()
     verify_tools()
 
     # Step 1: Extract frames
-    console.rule("[bold blue]Step 1/5: Extract Frames")
+    console.rule("[bold blue]Step 1/6: Extract Frames")
     if frames_dir.exists() and len(list(frames_dir.glob("*.jpg"))) > 0:
         frame_count = len(list(frames_dir.glob("*.jpg")))
         console.print(f"[yellow]Frames already extracted ({frame_count}), skipping. Delete {frames_dir} to re-extract.[/yellow]")
@@ -147,7 +148,7 @@ def main(video: Path, scene: str | None, output: Path | None, fps: int,
         console.print("[yellow]Warning: fewer than 20 frames — consider a longer video or higher fps[/yellow]")
 
     # Step 2: COLMAP camera poses
-    console.rule("[bold blue]Step 2/5: Camera Pose Estimation (COLMAP)")
+    console.rule("[bold blue]Step 2/6: Camera Pose Estimation (COLMAP)")
     sparse_check = colmap_dir / "sparse" / "0" / "cameras.bin"
     if sparse_check.exists():
         console.print(f"[yellow]COLMAP already done, skipping. Delete {colmap_dir} to re-run.[/yellow]")
@@ -155,25 +156,42 @@ def main(video: Path, scene: str | None, output: Path | None, fps: int,
         run_colmap(frames_dir, colmap_dir)
 
     # Step 3: Train Gaussian splat with Nerfstudio
-    console.rule("[bold blue]Step 3/5: Train Gaussian Splat (splatfacto)")
+    console.rule("[bold blue]Step 3/6: Train Gaussian Splat (splatfacto)")
     config_path = train_splat(colmap_dir, training_dir, max_iterations=iterations, downscale=downscale)
 
     # Step 4: Export .ply
-    console.rule("[bold blue]Step 4/5: Export")
+    console.rule("[bold blue]Step 4/6: Export Splat")
     ply_path = export_splat(config_path, export_dir)
 
-    # Step 5: Copy to final locations
-    console.rule("[bold blue]Step 5/5: Deploy")
+    # Step 5: Extract collision geometry from point cloud
+    console.rule("[bold blue]Step 5/6: Extract Collision Mesh")
+    collision_dir = work_dir / scene_name / "collision"
+    collision_obj = collision_dir / f"{scene_name}_collision.obj"
+    if collision_obj.exists():
+        console.print(f"[yellow]Collision mesh exists, skipping. Delete {collision_obj} to re-run.[/yellow]")
+    else:
+        collision_obj = extract_collision(ply_path, collision_obj)
+
+    # Step 6: Copy to final locations
+    console.rule("[bold blue]Step 6/6: Deploy")
     output.mkdir(parents=True, exist_ok=True)
     final_ply = output / f"{scene_name}.ply"
     shutil.copy2(ply_path, final_ply)
+    final_collision = output / f"{scene_name}_collision.obj"
+    if collision_obj.exists():
+        shutil.copy2(collision_obj, final_collision)
 
     unity_ply = None
+    unity_collision = None
     if copy_to_unity:
         UNITY_SPLATS.mkdir(parents=True, exist_ok=True)
         unity_ply = UNITY_SPLATS / f"{scene_name}.ply"
         shutil.copy2(ply_path, unity_ply)
-        console.print(f"[green]Copied to Unity: {unity_ply}[/green]")
+        if collision_obj.exists():
+            unity_collision = UNITY_SPLATS / f"{scene_name}_collision.obj"
+            shutil.copy2(collision_obj, unity_collision)
+            console.print(f"[green]Copied collision mesh to Unity: {unity_collision}[/green]")
+        console.print(f"[green]Copied splat to Unity: {unity_ply}[/green]")
 
     size_mb = final_ply.stat().st_size / (1024 * 1024)
     console.print()
@@ -183,15 +201,15 @@ def main(video: Path, scene: str | None, output: Path | None, fps: int,
         f"2. Tools > Gaussian Splats > Create GaussianSplatAsset\n"
         f"3. Browse to: {unity_ply or final_ply}\n"
         f"4. Set Quality to Medium, click Create Asset\n"
-        f"5. Create empty GameObject, add Gaussian Splat Renderer\n"
-        f"6. Drag the asset into Splat Asset field\n"
-        f"7. Set Transform Rotation X = -90"
+        f"5. Collision mesh auto-loaded from: {scene_name}_collision.obj\n"
+        f"6. Set Transform Rotation X = -90"
     )
 
     console.print(Panel(
         f"[bold green]Pipeline complete![/bold green]\n\n"
-        f"Splat file: {final_ply}\n"
-        f"Size:       {size_mb:.1f} MB\n\n"
+        f"Splat file:      {final_ply}\n"
+        f"Collision mesh:  {final_collision}\n"
+        f"Size:            {size_mb:.1f} MB\n\n"
         f"[bold]Next steps (manual in Unity):[/bold]\n{next_steps}",
         title="Done",
     ))

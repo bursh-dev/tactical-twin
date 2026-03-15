@@ -20,6 +20,7 @@ tt-pipeline = "tactical_twin_pipeline.pipeline:main"
 tt-extract = "tactical_twin_pipeline.extract_frames:main"
 tt-train = "tactical_twin_pipeline.train_splat:main"
 tt-export = "tactical_twin_pipeline.export_splat:main"
+tt-collision = "tactical_twin_pipeline.extract_collision:main"
 
 [[tool.uv.index]]
 name = "pytorch-cu124"
